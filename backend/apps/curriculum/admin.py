@@ -4,7 +4,7 @@ OmniLab AI - Curriculum Admin Configuration
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Domain, Course, Lesson, DocumentChunk
+from .models import Domain, Course, Lesson, DocumentChunk, Quiz, Question, QuestionOption, QuizAttempt
 
 
 @admin.register(Domain)
@@ -129,3 +129,42 @@ class DocumentChunkAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # Chunks are always auto-generated
+
+
+# ── Quiz Admin ────────────────────────────────────────────────────────────────
+
+class QuestionOptionInline(admin.TabularInline):
+    model = QuestionOption
+    extra = 2
+    fields = ("text", "is_correct")
+
+
+class QuestionInline(admin.StackedInline):
+    model = Question
+    extra = 1
+    fields = ("text", "points", "sort_order", "explanation")
+    show_change_link = True
+
+
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ("title", "lesson", "created_by", "passing_score", "time_limit_minutes", "total_questions", "is_published", "created_at")
+    list_filter = ("is_published", "lesson__course")
+    search_fields = ("title", "description", "lesson__title")
+    inlines = [QuestionInline]
+
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ("text", "quiz", "points", "sort_order")
+    list_filter = ("quiz__lesson__course", "quiz")
+    search_fields = ("text", "explanation")
+    inlines = [QuestionOptionInline]
+
+
+@admin.register(QuizAttempt)
+class QuizAttemptAdmin(admin.ModelAdmin):
+    list_display = ("student", "quiz", "score", "is_passed", "completed_at")
+    list_filter = ("is_passed", "quiz")
+    search_fields = ("student__email", "quiz__title")
+    readonly_fields = ("id", "quiz", "student", "score", "is_passed", "answers", "completed_at")

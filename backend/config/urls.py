@@ -37,6 +37,7 @@ def api_root(request, format=None):
                 "billing_plans": reverse("billing:plan_list", request=request, format=format),
                 "wallet": reverse("billing:wallet", request=request, format=format),
                 "quota": reverse("billing:quota_status", request=request, format=format),
+                "groups": reverse("groups:group_list_create", request=request, format=format),
             },
         }
     )
@@ -58,6 +59,9 @@ api_v1_patterns = [
 
     # ── Simulation ────────────────────────────────────────────────────────────
     path("simulations/", include("apps.simulation.urls")),
+
+    # ── Groups & Mentorship ───────────────────────────────────────────────────
+    path("groups/", include("apps.groups.urls")),
 ]
 
 urlpatterns = [

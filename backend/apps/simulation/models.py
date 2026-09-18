@@ -373,3 +373,96 @@ class InstructorReview(models.Model):
             f"Review by {self.reviewer.email if self.reviewer else 'N/A'} "
             f"for session {self.session_id}"
         )
+
+
+# ─── SIMULATION SCENARIO (Mentor Case Story) ──────────────────────────────────
+
+class SimulationScenario(models.Model):
+    """
+    Mentor-authored laboratory scenario/story:
+    accused, crime details, victim, available roles, evidence, and AI prompt template.
+    Grounds simulations on specific textbook lessons.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    case = models.ForeignKey(
+        SimulationCase,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="scenarios",
+        help_text=_("Optional link to active simulation case."),
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="scenarios",
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="scenarios",
+        help_text=_("Textbook lesson whose knowledge base is used by AI for grounding."),
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_scenarios",
+        limit_choices_to={"role__in": [UserRole.INSTRUCTOR, UserRole.ADMIN]},
+    )
+
+    title = models.CharField(_("Scenario Title"), max_length=255)
+    accused_name = models.CharField(
+        _("Accused Name"),
+        max_length=255,
+        help_text=_("Name/identity of the accused or suspect."),
+    )
+    crime_details = models.TextField(
+        _("Crime Details"),
+        help_text=_("Detailed factual description of the incident, timeline, and actions."),
+    )
+    victim_details = models.TextField(
+        _("Victim Details"),
+        blank=True,
+        help_text=_("Details regarding the victim or affected parties."),
+    )
+
+    roles_available = models.JSONField(
+        _("Roles Available"),
+        default=list,
+        help_text=_("Roles the student can assume (e.g. ['ADVOKAT', 'TERGOVCHI', 'PROKUROR', 'SUDBA'])."),
+    )
+    prompt_template = models.TextField(
+        _("AI Prompt Template"),
+        blank=True,
+        help_text=_("Custom instructions and legal constraints for AI evaluator."),
+    )
+    evidence_items = models.JSONField(
+        _("Evidence Items"),
+        default=list,
+        blank=True,
+        help_text=_("List of case evidence, forensic reports, and witness statements."),
+    )
+    laws_referenced = models.JSONField(
+        _("Referenced Laws"),
+        default=list,
+        blank=True,
+        help_text=_("Applicable legal articles (e.g. ['JK 37-modda', 'JK 104-modda'])."),
+    )
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "simulation_scenario"
+        verbose_name = _("Simulation Scenario")
+        verbose_name_plural = _("Simulation Scenarios")
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Scenario: {self.title} (Ayblanuvchi: {self.accused_name})"
+

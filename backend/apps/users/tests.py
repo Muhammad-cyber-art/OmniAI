@@ -123,3 +123,54 @@ class AuthAndUserTests(APITestCase):
             response = self.client.get(url)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual(len(response.data["results"]), 1)
+
+
+class GoogleAuthTests(APITestCase):
+    def setUp(self):
+        self.mentor = User.objects.create_user(
+            email="mentor_test@omnilab.uz",
+            username="mentor_test",
+            password="StrongPassword123!",
+            role="INSTRUCTOR",
+        )
+        from apps.groups.models import Group
+        from apps.groups.services import GroupService
+        self.group = Group.objects.create(name="Sud Jarayoni Guruh", mentor=self.mentor)
+        self.invitation = GroupService.generate_invite(group=self.group, creator=self.mentor)
+
+    def test_google_auth_new_user_login(self):
+        payload = {"id_token": "mock_alibek"}
+        res = self.client.post("/api/v1/auth/google/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data["success"])
+        self.assertIn("tokens", res.data)
+        self.assertEqual(res.data["user"]["email"], "alibek@gmail.com")
+
+        # Verify user exists in DB and has student role
+        user = User.objects.get(email="alibek@gmail.com")
+        self.assertEqual(user.role, "STUDENT")
+
+    def test_google_auth_with_invite_token_auto_joins_group(self):
+        payload = {
+            "id_token": "mock_karima",
+            "invite_token": self.invitation.token,
+        }
+        res = self.client.post("/api/v1/auth/google/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(res.data["joined_group"])
+        self.assertEqual(res.data["joined_group"]["group_id"], str(self.group.id))
+
+        # Check membership in DB
+        from apps.groups.models import GroupMembership
+        user = User.objects.get(email="karima@gmail.com")
+        self.assertTrue(GroupMembership.objects.filter(group=self.group, student=user).exists())
+
+    def test_google_auth_with_cookie_auto_joins_and_clears_cookie(self):
+        self.client.cookies["pending_invite_token"] = self.invitation.token
+        payload = {"id_token": "mock_jasur"}
+        res = self.client.post("/api/v1/auth/google/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(res.data["joined_group"])
+
+        # Check cookie deleted
+        self.assertEqual(res.cookies["pending_invite_token"].value, "")

@@ -3,7 +3,7 @@ OmniLab AI - Curriculum Serializers
 """
 from rest_framework import serializers
 
-from .models import Domain, Course, Lesson, DocumentChunk
+from .models import Domain, Course, Lesson, DocumentChunk, Quiz, Question, QuestionOption, QuizAttempt
 
 
 class DomainSerializer(serializers.ModelSerializer):
@@ -123,3 +123,113 @@ class DocumentChunkAdminSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "token_count", "created_at"]
+
+
+# ─── QUIZ SERIALIZERS ─────────────────────────────────────────────────────────
+
+class QuestionOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionOption
+        fields = ["id", "text", "is_correct"]
+
+
+class QuestionOptionStudentSerializer(serializers.ModelSerializer):
+    """Excludes is_correct when student is taking the quiz."""
+    class Meta:
+        model = QuestionOption
+        fields = ["id", "text"]
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    options = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = ["id", "text", "explanation", "points", "sort_order", "options"]
+
+    def get_options(self, obj):
+        request = self.context.get("request")
+        # Hide correct answers for students before submission
+        if request and request.user and request.user.role in ("INSTRUCTOR", "ADMIN"):
+            return QuestionOptionSerializer(obj.options.all(), many=True).data
+        return QuestionOptionStudentSerializer(obj.options.all(), many=True).data
+
+
+class QuestionWriteSerializer(serializers.ModelSerializer):
+    options = QuestionOptionSerializer(many=True, required=False)
+
+    class Meta:
+        model = Question
+        fields = ["id", "quiz", "text", "explanation", "points", "sort_order", "options"]
+        read_only_fields = ["id", "quiz"]
+
+    def create(self, validated_data):
+        options_data = validated_data.pop("options", [])
+        question = Question.objects.create(**validated_data)
+        for opt in options_data:
+            QuestionOption.objects.create(question=question, **opt)
+        return question
+
+
+class QuizListSerializer(serializers.ModelSerializer):
+    lesson_title = serializers.CharField(source="lesson.title", read_only=True)
+    total_questions = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "lesson",
+            "lesson_title",
+            "title",
+            "description",
+            "time_limit_minutes",
+            "passing_score",
+            "total_questions",
+            "is_published",
+            "created_at",
+        ]
+
+
+class QuizDetailSerializer(QuizListSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)
+
+    class Meta(QuizListSerializer.Meta):
+        fields = QuizListSerializer.Meta.fields + ["questions"]
+
+
+class QuizWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "lesson",
+            "title",
+            "description",
+            "time_limit_minutes",
+            "passing_score",
+            "is_published",
+        ]
+        read_only_fields = ["id", "lesson"]
+
+
+class QuizSubmitSerializer(serializers.Serializer):
+    answers = serializers.DictField(
+        child=serializers.UUIDField(),
+        help_text="Map of question_id -> selected_option_id",
+    )
+
+
+class QuizAttemptResultSerializer(serializers.ModelSerializer):
+    quiz_title = serializers.CharField(source="quiz.title", read_only=True)
+
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            "id",
+            "quiz",
+            "quiz_title",
+            "score",
+            "is_passed",
+            "completed_at",
+        ]

@@ -9,6 +9,10 @@ from .views import (
     LessonDetailView,
     DocumentChunkListView,
     RebuildEmbeddingsView,
+    LessonQuizListCreateView,
+    QuizDetailView,
+    QuizQuestionCreateView,
+    QuizSubmitView,
 )
 
 app_name = "curriculum"
@@ -23,4 +27,10 @@ urlpatterns = [
     path("lessons/<uuid:pk>/", LessonDetailView.as_view(), name="lesson_detail"),
     path("lessons/<uuid:lesson_id>/chunks/", DocumentChunkListView.as_view(), name="chunk_list"),
     path("lessons/<uuid:pk>/rebuild-embeddings/", RebuildEmbeddingsView.as_view(), name="rebuild_embeddings"),
+
+    # ── Quizzes & Tests ───────────────────────────────────────────────────────
+    path("lessons/<uuid:lesson_id>/quizzes/", LessonQuizListCreateView.as_view(), name="lesson_quizzes"),
+    path("quizzes/<uuid:pk>/", QuizDetailView.as_view(), name="quiz_detail"),
+    path("quizzes/<uuid:quiz_id>/questions/", QuizQuestionCreateView.as_view(), name="quiz_questions"),
+    path("quizzes/<uuid:quiz_id>/submit/", QuizSubmitView.as_view(), name="quiz_submit"),
 ]

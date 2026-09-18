@@ -5,7 +5,13 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from .models import SimulationCase, SimulationSession, SimulationStepLog, InstructorReview
+from .models import (
+    SimulationCase,
+    SimulationSession,
+    SimulationStepLog,
+    InstructorReview,
+    SimulationScenario,
+)
 
 
 class SimulationStepLogInline(admin.TabularInline):
@@ -211,3 +217,11 @@ class InstructorReviewAdmin(admin.ModelAdmin):
         return format_html(
             '<span style="color:{};">{}{:.1f}</span>', color, sign, delta
         )
+
+
+@admin.register(SimulationScenario)
+class SimulationScenarioAdmin(admin.ModelAdmin):
+    list_display = ("title", "accused_name", "course", "lesson", "created_by", "is_active", "created_at")
+    list_filter = ("is_active", "course__domain", "course")
+    search_fields = ("title", "accused_name", "crime_details", "created_by__email")
+    readonly_fields = ("id", "created_at", "updated_at")

@@ -11,6 +11,7 @@ from .views import (
     PublicStudentListView,
     PublicStudentDetailView,
     UserListView,
+    GoogleAuthView,
 )
 
 app_name = "users"
@@ -22,6 +23,7 @@ urlpatterns = [
     # Auth endpoints
     path("register/", UserRegistrationView.as_view(), name="register"),
     path("login/", CustomTokenObtainPairView.as_view(), name="login"),
+    path("google/", GoogleAuthView.as_view(), name="google_auth"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("logout/", TokenBlacklistView.as_view(), name="logout"),
 

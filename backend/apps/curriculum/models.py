@@ -213,3 +213,140 @@ class DocumentChunk(models.Model):
 
     def __str__(self) -> str:
         return f"Chunk[{self.chunk_index}] of {self.lesson.title}"
+
+
+# ─── QUIZ & ASSESSMENT MODELS ─────────────────────────────────────────────────
+
+class Quiz(models.Model):
+    """
+    Assessment test linked to a Lesson. Created by Mentors / Instructors.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name="quizzes",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_quizzes",
+        limit_choices_to={"role__in": ["INSTRUCTOR", "ADMIN"]},
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    time_limit_minutes = models.PositiveSmallIntegerField(default=15)
+    passing_score = models.PositiveSmallIntegerField(
+        default=70,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text=_("Minimum percentage score required to pass."),
+    )
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "curriculum_quiz"
+        verbose_name = _("Quiz")
+        verbose_name_plural = _("Quizzes")
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Quiz: {self.title} ({self.lesson.title})"
+
+    @property
+    def total_questions(self) -> int:
+        return self.questions.count()
+
+
+class Question(models.Model):
+    """
+    A single question within a Quiz.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    quiz = models.ForeignKey(
+        Quiz,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    text = models.TextField(help_text=_("Question prompt/text."))
+    explanation = models.TextField(
+        blank=True,
+        help_text=_("Explanation referencing the textbook or legal article."),
+    )
+    points = models.PositiveSmallIntegerField(default=1)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "curriculum_question"
+        verbose_name = _("Question")
+        verbose_name_plural = _("Questions")
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        return f"Q: {self.text[:50]}..."
+
+
+class QuestionOption(models.Model):
+    """
+    Answer option for a Question.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="options",
+    )
+    text = models.CharField(max_length=512)
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "curriculum_question_option"
+        verbose_name = _("Question Option")
+        verbose_name_plural = _("Question Options")
+
+    def __str__(self) -> str:
+        status_label = " (To'g'ri)" if self.is_correct else ""
+        return f"{self.text[:40]}{status_label}"
+
+
+class QuizAttempt(models.Model):
+    """
+    Records a student's attempt and auto-calculated score.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    quiz = models.ForeignKey(
+        Quiz,
+        on_delete=models.CASCADE,
+        related_name="attempts",
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="quiz_attempts",
+    )
+    score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
+    )
+    is_passed = models.BooleanField(default=False)
+    answers = models.JSONField(
+        default=dict,
+        help_text=_("Map of question_id -> selected_option_id"),
+    )
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "curriculum_quiz_attempt"
+        verbose_name = _("Quiz Attempt")
+        verbose_name_plural = _("Quiz Attempts")
+        ordering = ["-completed_at"]
+
+    def __str__(self) -> str:
+        result = "PASSED" if self.is_passed else "FAILED"
+        return f"{self.student.email} → {self.quiz.title}: {self.score}% [{result}]"
+

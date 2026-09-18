@@ -12,6 +12,8 @@ from .views import (
     InstructorSessionListView,
     InstructorSessionDetailView,
     InstructorReviewView,
+    SimulationScenarioListCreateView,
+    SimulationScenarioDetailView,
 )
 
 app_name = "simulation"
@@ -20,6 +22,10 @@ urlpatterns = [
     # ── Cases ──────────────────────────────────────────────────────────────────
     path("cases/", SimulationCaseListCreateView.as_view(), name="case_list"),
     path("cases/<slug:slug>/", SimulationCaseDetailView.as_view(), name="case_detail"),
+
+    # ── Laboratory Scenarios (Mentor Stories) ──────────────────────────────────
+    path("scenarios/", SimulationScenarioListCreateView.as_view(), name="scenario_list_create"),
+    path("scenarios/<uuid:pk>/", SimulationScenarioDetailView.as_view(), name="scenario_detail"),
 
     # ── Student Session Management ──────────────────────────────────────────────
     path("start/", StartSimulationView.as_view(), name="start_simulation"),

@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.users.permissions import IsStudent, IsInstructorOrAdmin, IsAdminUser, HasActiveQuota
-from .models import SimulationCase, SimulationSession, InstructorReview
+from .models import SimulationCase, SimulationSession, InstructorReview, SimulationScenario
 from .serializers import (
     SimulationCaseListSerializer,
     SimulationCaseDetailSerializer,
@@ -19,6 +19,8 @@ from .serializers import (
     TurnInputSerializer,
     InstructorReviewSerializer,
     InstructorReviewWriteSerializer,
+    SimulationScenarioSerializer,
+    SimulationScenarioWriteSerializer,
 )
 from .services import SimulationEngineService
 
@@ -352,3 +354,74 @@ class InstructorReviewView(views.APIView):
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+# ── Laboratory Simulation Scenarios (Mentor Stories) ──────────────────────────
+
+class SimulationScenarioListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/v1/simulations/scenarios/
+         Browse laboratory crime/case scenarios.
+    POST /api/v1/simulations/scenarios/
+         Mentors create new case stories with accused details, roles, evidence, and prompts.
+    """
+    filterset_fields = ["course", "lesson", "is_active"]
+    search_fields = ["title", "accused_name", "crime_details"]
+    ordering_fields = ["created_at", "title"]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return SimulationScenarioWriteSerializer
+        return SimulationScenarioSerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsInstructorOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = SimulationScenario.objects.select_related("course", "lesson", "created_by")
+        if self.request.user.role in ("STUDENT", "RECRUITER"):
+            qs = qs.filter(is_active=True)
+        elif self.request.user.role == "INSTRUCTOR":
+            qs = qs.filter(created_by=self.request.user) | qs.filter(is_active=True)
+        return qs.distinct()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            {
+                "success": True,
+                "message": "Laboratoriya stsenariysi muvaffaqiyatli yaratildi.",
+                "data": SimulationScenarioSerializer(serializer.instance).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SimulationScenarioDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/v1/simulations/scenarios/<uuid:pk>/
+    PATCH  /api/v1/simulations/scenarios/<uuid:pk>/ (Mentor / Admin)
+    DELETE /api/v1/simulations/scenarios/<uuid:pk>/ (Mentor / Admin)
+    """
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return SimulationScenarioWriteSerializer
+        return SimulationScenarioSerializer
+
+    def get_permissions(self):
+        if self.request.method in ("PUT", "PATCH", "DELETE"):
+            return [IsInstructorOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        return SimulationScenario.objects.select_related("course", "lesson", "created_by")
+
+    def perform_destroy(self, instance):
+        instance.delete()

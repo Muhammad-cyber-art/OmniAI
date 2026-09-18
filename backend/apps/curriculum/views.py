@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.permissions import IsInstructorOrAdmin, IsAdminUser
-from .models import Domain, Course, Lesson, DocumentChunk
+from .models import Domain, Course, Lesson, DocumentChunk, Quiz, Question, QuestionOption, QuizAttempt
 from .serializers import (
     DomainSerializer,
     CourseListSerializer,
@@ -19,6 +19,13 @@ from .serializers import (
     LessonDetailSerializer,
     LessonWriteSerializer,
     DocumentChunkAdminSerializer,
+    QuizListSerializer,
+    QuizDetailSerializer,
+    QuizWriteSerializer,
+    QuestionSerializer,
+    QuestionWriteSerializer,
+    QuizSubmitSerializer,
+    QuizAttemptResultSerializer,
 )
 from .services import CurriculumService
 
@@ -212,3 +219,164 @@ class RebuildEmbeddingsView(APIView):
                 "chunks_count": count,
             }
         )
+
+
+# ── Quiz & Assessment Views ───────────────────────────────────────────────────
+
+class LessonQuizListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/v1/curriculum/lessons/<uuid:lesson_id>/quizzes/
+    POST /api/v1/curriculum/lessons/<uuid:lesson_id>/quizzes/ (Mentor/Admin)
+    """
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return QuizWriteSerializer
+        return QuizListSerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsInstructorOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = Quiz.objects.filter(lesson_id=self.kwargs["lesson_id"]).select_related("lesson")
+        if self.request.user.role in ("STUDENT", "RECRUITER"):
+            qs = qs.filter(is_published=True)
+        return qs
+
+    def perform_create(self, serializer):
+        lesson = Lesson.objects.get(pk=self.kwargs["lesson_id"])
+        serializer.save(lesson=lesson, created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            {"success": True, "message": "Test muvaffaqiyatli yaratildi.", "data": QuizDetailSerializer(serializer.instance).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/v1/curriculum/quizzes/<uuid:pk>/
+    PATCH  /api/v1/curriculum/quizzes/<uuid:pk>/ (Mentor/Admin)
+    DELETE /api/v1/curriculum/quizzes/<uuid:pk>/ (Mentor/Admin)
+    """
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return QuizWriteSerializer
+        return QuizDetailSerializer
+
+    def get_permissions(self):
+        if self.request.method in ("PUT", "PATCH", "DELETE"):
+            return [IsInstructorOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        return Quiz.objects.select_related("lesson", "created_by").prefetch_related("questions__options")
+
+
+class QuizQuestionCreateView(generics.CreateAPIView):
+    """
+    POST /api/v1/curriculum/quizzes/<uuid:quiz_id>/questions/
+    Mentor adds a new question with options to a Quiz.
+    """
+    serializer_class = QuestionWriteSerializer
+    permission_classes = [IsInstructorOrAdmin]
+
+    def create(self, request, quiz_id, *args, **kwargs):
+        try:
+            quiz = Quiz.objects.get(pk=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response(
+                {"success": False, "error": {"code": "NOT_FOUND", "message": "Test topilmadi."}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        data = request.data.copy()
+        data["quiz"] = quiz.id
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        question = serializer.save(quiz=quiz)
+        return Response(
+            {"success": True, "message": "Savol qo'shildi.", "data": QuestionSerializer(question, context={"request": request}).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class QuizSubmitView(APIView):
+    """
+    POST /api/v1/curriculum/quizzes/<uuid:quiz_id>/submit/
+    Student submits answers to a Quiz. Automatically calculates score and awards status.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, quiz_id, *args, **kwargs):
+        try:
+            quiz = Quiz.objects.prefetch_related("questions__options").get(pk=quiz_id, is_published=True)
+        except Quiz.DoesNotExist:
+            return Response(
+                {"success": False, "error": {"code": "NOT_FOUND", "message": "Test topilmadi yoki nofaol."}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = QuizSubmitSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student_answers = serializer.validated_data["answers"]
+
+        questions = quiz.questions.all()
+        if not questions.exists():
+            return Response(
+                {"success": False, "error": {"code": "EMPTY_QUIZ", "message": "Ushbu testda hali savollar yo'q."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        total_points = 0
+        earned_points = 0
+        feedback_details = []
+
+        for q in questions:
+            total_points += q.points
+            selected_option_id = str(student_answers.get(str(q.id)) or "")
+            correct_option = q.options.filter(is_correct=True).first()
+
+            is_correct = bool(correct_option and str(correct_option.id) == selected_option_id)
+            if is_correct:
+                earned_points += q.points
+
+            feedback_details.append({
+                "question_id": str(q.id),
+                "question_text": q.text,
+                "is_correct": is_correct,
+                "selected_option_id": selected_option_id,
+                "correct_option_id": str(correct_option.id) if correct_option else None,
+                "explanation": q.explanation,
+            })
+
+        score = (earned_points / total_points * 100) if total_points > 0 else 0.0
+        is_passed = score >= quiz.passing_score
+
+        attempt = QuizAttempt.objects.create(
+            quiz=quiz,
+            student=request.user,
+            score=round(score, 2),
+            is_passed=is_passed,
+            answers={str(k): str(v) for k, v in student_answers.items()},
+        )
+
+        return Response({
+            "success": True,
+            "message": "Test muvaffaqiyatli topshirildi!" if is_passed else "Test yakunlandi. O'tish bali to'planmadi.",
+            "data": {
+                "attempt_id": str(attempt.id),
+                "quiz_title": quiz.title,
+                "score": round(score, 1),
+                "passing_score": quiz.passing_score,
+                "is_passed": is_passed,
+                "earned_points": earned_points,
+                "total_points": total_points,
+                "details": feedback_details,
+            },
+        })

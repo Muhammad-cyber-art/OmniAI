@@ -148,3 +148,57 @@ class SimulationTests(APITestCase):
         self.assertEqual(review.original_ai_score, 60.0)
         self.assertEqual(review.override_score, 85.0)
         self.assertEqual(review.reviewer, self.instructor)
+
+
+class SimulationScenarioTests(APITestCase):
+    def setUp(self):
+        self.mentor = User.objects.create_user(
+            email="law_prof@omnilab.uz",
+            username="law_prof",
+            password="StrongPassword123!",
+            role="INSTRUCTOR",
+        )
+        self.student = User.objects.create_user(
+            email="law_student@omnilab.uz",
+            username="law_student",
+            password="StrongPassword123!",
+            role="STUDENT",
+        )
+        self.domain = Domain.objects.create(name="Huquqshunoslik", slug="huquqshunoslik")
+        self.course = Course.objects.create(
+            domain=self.domain,
+            instructor=self.mentor,
+            title="Kriminalistika va Sud Jarayoni",
+            slug="kriminalistika",
+            is_published=True,
+        )
+
+    def test_mentor_can_create_scenario(self):
+        self.client.force_authenticate(user=self.mentor)
+        payload = {
+            "course": str(self.course.id),
+            "title": "Tungi do'konda o'g'rilik ishi",
+            "accused_name": "Valiyev Bobur",
+            "crime_details": "2026-yil 12-fevral kuni soat 23:30 da do'konga bostirib kirgan...",
+            "victim_details": "Do'kon sotuvchisi Qodirov...",
+            "roles_available": ["ADVOKAT", "TERGOVCHI", "PROKUROR"],
+            "prompt_template": "AI talabaning vajlarini Jinoyat kodeksining 169-moddasi bo'yicha tahlil qiladi.",
+            "evidence_items": ["Kuzatuv kamerasi videoyozuvi", "Barmog' izlari"],
+            "laws_referenced": ["JK 169-modda", "JPK 87-modda"],
+        }
+        res = self.client.post("/api/v1/simulations/scenarios/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(res.data["success"])
+        self.assertEqual(res.data["data"]["accused_name"], "Valiyev Bobur")
+
+    def test_student_cannot_create_scenario(self):
+        self.client.force_authenticate(user=self.student)
+        payload = {
+            "course": str(self.course.id),
+            "title": "Talaba stsenariysi",
+            "accused_name": "Test",
+            "crime_details": "Details",
+        }
+        res = self.client.post("/api/v1/simulations/scenarios/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+

@@ -128,3 +128,75 @@ class CurriculumTests(APITestCase):
         response = self.client.post(url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Course.objects.filter(slug="neurology-basics").exists())
+
+
+class QuizTests(APITestCase):
+    def setUp(self):
+        self.instructor = User.objects.create_user(
+            email="quiz_prof@omnilab.uz",
+            username="quiz_prof",
+            password="StrongPassword123!",
+            role="INSTRUCTOR",
+        )
+        self.student = User.objects.create_user(
+            email="quiz_student@omnilab.uz",
+            username="quiz_student",
+            password="StrongPassword123!",
+            role="STUDENT",
+        )
+        self.domain = Domain.objects.create(name="Huquq", slug="huquq-quiz")
+        self.course = Course.objects.create(
+            domain=self.domain,
+            instructor=self.instructor,
+            title="Jinoyat Moddalari",
+            slug="jinoyat-moddalari",
+            is_published=True,
+        )
+        self.lesson = Lesson.objects.create(
+            course=self.course,
+            title="1-Dars: Zaruriy Mudofaa",
+            slug="zaruriy-mudofaa",
+            content="Zaruriy mudofaa chegarasi buzilmagan taqdirda javobgarlik bo'lmaydi.",
+            is_published=True,
+        )
+
+    def test_mentor_create_quiz_and_student_submit(self):
+        # 1. Mentor creates quiz
+        self.client.force_authenticate(user=self.instructor)
+        quiz_payload = {
+            "title": "Zaruriy mudofaa bo'yicha test",
+            "description": "Bilimlarni sinash",
+            "time_limit_minutes": 10,
+            "passing_score": 50,
+        }
+        res = self.client.post(f"/api/v1/curriculum/lessons/{self.lesson.id}/quizzes/", quiz_payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        quiz_id = res.data["data"]["id"]
+
+        # 2. Mentor adds question with options
+        q_payload = {
+            "text": "JK 37-moddasiga ko'ra zaruriy mudofaa holatida yetkazilgan zarar qilmish deb topiladimi?",
+            "explanation": "Zaruriy mudofaa holatida qilingan harakat jinoyat deb topilmaydi.",
+            "points": 10,
+            "options": [
+                {"text": "Yo'q, jinoyat deb topilmaydi", "is_correct": True},
+                {"text": "Ha, doimo jinoyat hisoblanadi", "is_correct": False},
+            ],
+        }
+        res = self.client.post(f"/api/v1/curriculum/quizzes/{quiz_id}/questions/", q_payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        q_id = res.data["data"]["id"]
+        correct_option_id = [opt["id"] for opt in res.data["data"]["options"] if opt.get("is_correct")][0]
+
+        # 3. Student submits correct answer
+        self.client.force_authenticate(user=self.student)
+        submit_payload = {
+            "answers": {
+                str(q_id): str(correct_option_id),
+            }
+        }
+        res = self.client.post(f"/api/v1/curriculum/quizzes/{quiz_id}/submit/", submit_payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["data"]["score"], 100.0)
+        self.assertTrue(res.data["data"]["is_passed"])
+

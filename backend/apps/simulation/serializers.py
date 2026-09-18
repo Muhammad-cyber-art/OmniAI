@@ -3,7 +3,13 @@ OmniLab AI - Simulation Serializers
 """
 from rest_framework import serializers
 
-from .models import SimulationCase, SimulationSession, SimulationStepLog, InstructorReview
+from .models import (
+    SimulationCase,
+    SimulationSession,
+    SimulationStepLog,
+    InstructorReview,
+    SimulationScenario,
+)
 
 
 class SimulationCaseListSerializer(serializers.ModelSerializer):
@@ -176,3 +182,56 @@ class InstructorReviewWriteSerializer(serializers.ModelSerializer):
                 "Override reason must be at least 20 characters. Please provide a meaningful explanation."
             )
         return value
+
+
+# ── Scenario Serializers ──────────────────────────────────────────────────────
+
+class SimulationScenarioSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source="course.title", read_only=True)
+    lesson_title = serializers.CharField(source="lesson.title", read_only=True)
+    creator_name = serializers.CharField(source="created_by.full_name", read_only=True)
+
+    class Meta:
+        model = SimulationScenario
+        fields = [
+            "id",
+            "course",
+            "course_title",
+            "lesson",
+            "lesson_title",
+            "case",
+            "created_by",
+            "creator_name",
+            "title",
+            "accused_name",
+            "crime_details",
+            "victim_details",
+            "roles_available",
+            "prompt_template",
+            "evidence_items",
+            "laws_referenced",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+
+class SimulationScenarioWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SimulationScenario
+        fields = [
+            "id",
+            "course",
+            "lesson",
+            "case",
+            "title",
+            "accused_name",
+            "crime_details",
+            "victim_details",
+            "roles_available",
+            "prompt_template",
+            "evidence_items",
+            "laws_referenced",
+            "is_active",
+        ]

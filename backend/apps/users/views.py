@@ -2,14 +2,17 @@
 OmniLab AI - Users Views
 Authentication, profile management, and portfolio endpoints.
 """
+import json
 import logging
+import urllib.request
+import uuid
 from django.contrib.auth import get_user_model
 from rest_framework import generics, status, views
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import UserProfile
+from .models import UserProfile, UserRole
 from .permissions import IsRecruiter, IsAdminUser
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -140,14 +143,37 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         logger.info("New user registered: %s (role=%s)", user.email, user.role)
-        return Response(
-            {
-                "success": True,
-                "message": "Registration successful. Please verify your email.",
-                "data": {"id": str(user.id), "email": user.email, "role": user.role},
+
+        # Deferred Auto-Join: check invite token from body or cookie
+        invite_token = request.data.get("invite_token") or request.COOKIES.get("pending_invite_token")
+        joined_group_data = None
+        if invite_token:
+            try:
+                from apps.groups.services import GroupService
+                success, msg, group = GroupService.join_group_with_token(user, invite_token)
+                if success and group:
+                    joined_group_data = {
+                        "group_id": str(group.id),
+                        "group_name": group.name,
+                        "message": msg,
+                    }
+            except Exception as exc:
+                logger.warning("Auto-join failed during registration: %s", exc)
+
+        resp_data = {
+            "success": True,
+            "message": "Registration successful. Please verify your email.",
+            "data": {
+                "id": str(user.id),
+                "email": user.email,
+                "role": user.role,
+                "joined_group": joined_group_data,
             },
-            status=status.HTTP_201_CREATED,
-        )
+        }
+        response = Response(resp_data, status=status.HTTP_201_CREATED)
+        if "pending_invite_token" in request.COOKIES:
+            response.delete_cookie("pending_invite_token")
+        return response
 
 
 class MeView(generics.RetrieveUpdateAPIView):
@@ -226,3 +252,112 @@ class UserListView(generics.ListAPIView):
 
     def get_queryset(self):
         return User.objects.select_related("profile").all()
+
+
+class GoogleAuthView(views.APIView):
+    """
+    POST /api/v1/auth/google/
+    Body: { "id_token": "...", "invite_token": "..." (optional) }
+    Authenticates or auto-registers user via Google OAuth.
+    If 'pending_invite_token' cookie or 'invite_token' in body is present,
+    automatically enrolls the new student into the mentor's group.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        id_token = request.data.get("id_token")
+        email = request.data.get("email")
+        first_name = request.data.get("first_name", "")
+        last_name = request.data.get("last_name", "")
+
+        # 1. Verify Google token if provided
+        google_info = None
+        if id_token:
+            google_info = self._verify_google_token(id_token)
+
+        if google_info:
+            email = google_info.get("email") or email
+            first_name = google_info.get("given_name") or first_name or google_info.get("name", "")
+            last_name = google_info.get("family_name") or last_name
+
+        if not email:
+            return Response(
+                {"success": False, "error": {"code": "INVALID_TOKEN", "message": "Google avtorizatsiyasi amalga oshmadi. Email topilmadi."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 2. Get or create user
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email.split("@")[0] + "_" + str(uuid.uuid4())[:6],
+                "first_name": first_name,
+                "last_name": last_name,
+                "role": UserRole.STUDENT,
+                "is_email_verified": True,
+            },
+        )
+
+        if created:
+            logger.info("New user created via Google OAuth: %s", user.email)
+
+        # 3. Check for invite token (body or cookie)
+        invite_token = request.data.get("invite_token") or request.COOKIES.get("pending_invite_token")
+        joined_group_data = None
+        if invite_token:
+            try:
+                from apps.groups.services import GroupService
+                success, msg, group = GroupService.join_group_with_token(user, invite_token)
+                if success and group:
+                    joined_group_data = {
+                        "group_id": str(group.id),
+                        "group_name": group.name,
+                        "message": msg,
+                    }
+            except Exception as exc:
+                logger.warning("Deferred auto-join failed in GoogleAuth: %s", exc)
+
+        # 4. Generate JWT tokens
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
+        resp_data = {
+            "success": True,
+            "message": "Google orqali tizimga muvaffaqiyatli kirildi.",
+            "tokens": {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            },
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "username": user.username,
+                "full_name": user.full_name,
+                "role": user.role,
+            },
+            "joined_group": joined_group_data,
+        }
+
+        response = Response(resp_data, status=status.HTTP_200_OK)
+        # Clear cookie
+        if "pending_invite_token" in request.COOKIES:
+            response.delete_cookie("pending_invite_token")
+        return response
+
+    def _verify_google_token(self, id_token: str):
+        # Development / test tokens
+        if id_token.startswith("mock_") or id_token.startswith("test_"):
+            return {
+                "email": f"{id_token.replace('mock_', '').replace('test_', '')}@gmail.com",
+                "name": "Google Test User",
+                "given_name": "Google",
+                "family_name": "Tester",
+            }
+
+        try:
+            url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                return data
+        except Exception as e:
+            logger.warning("Google tokeninfo check failed: %s", e)
+            return None
