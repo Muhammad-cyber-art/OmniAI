@@ -214,3 +214,43 @@ export const simulationApi = {
   getMySessions: ()           => api.get('/simulations/sessions/my/'),
   getSession:    (id)         => api.get(`/simulations/sessions/${id}/`),
 };
+
+/* ══════════════════════════════════════════════════════════
+   ADMIN API
+   ══════════════════════════════════════════════════════════ */
+export const adminApi = {
+  /**
+   * GET /auth/users/?role=&is_active=&search=
+   * Admin only — full user list with filtering.
+   */
+  getUsers: (params = {}) =>
+    api.get('/auth/users/', { params }),
+
+  /**
+   * GET /auth/users/?role=INSTRUCTOR
+   * Filter to instructors/mentors only.
+   */
+  getMentors: (params = {}) =>
+    api.get('/auth/users/', { params: { ...params, role: 'INSTRUCTOR' } }),
+
+  /**
+   * GET /auth/users/?role=STUDENT
+   * Filter to students only.
+   */
+  getStudents: (params = {}) =>
+    api.get('/auth/users/', { params: { ...params, role: 'STUDENT' } }),
+
+  /**
+   * GET /curriculum/courses/
+   * All courses (admin can see all).
+   */
+  getCourses: (params = {}) =>
+    api.get('/curriculum/courses/', { params }),
+
+  /**
+   * GET /groups/
+   * All groups.
+   */
+  getGroups: (params = {}) =>
+    api.get('/groups/', { params }),
+};

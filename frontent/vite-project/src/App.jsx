@@ -5,19 +5,19 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Landing page sections
-import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import HowItWorks from './components/HowItWorks';
-import Features from './components/Features';
+import Navbar       from './components/Navbar';
+import Hero         from './components/Hero';
+import HowItWorks   from './components/HowItWorks';
+import Features     from './components/Features';
 import Testimonials from './components/Testimonials';
-import Pricing from './components/Pricing';
-import Footer from './components/Footer';
+import Pricing      from './components/Pricing';
+import Footer       from './components/Footer';
 
 // Auth pages
-import LoginPage from './pages/LoginPage';
+import LoginPage    from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
-// Dashboard
+// Dashboard (role-router)
 import DashboardPage from './pages/DashboardPage';
 
 /* ── Landing Page (assembled) ── */
@@ -44,11 +44,11 @@ export default function App() {
       <AuthProvider>
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/"         element={<LandingPage />} />
+          <Route path="/login"    element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected routes */}
+          {/* Main dashboard (role-router: ADMIN → AdminDashboard, INSTRUCTOR → MentorDashboard, STUDENT → StudentDashboard) */}
           <Route
             path="/dashboard"
             element={
@@ -58,11 +58,21 @@ export default function App() {
             }
           />
 
-          {/* Mentor-only routes (example) */}
+          {/* Admin-only shortcut route */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Mentor-only shortcut route */}
           <Route
             path="/mentor/*"
             element={
-              <ProtectedRoute roles={['mentor']}>
+              <ProtectedRoute roles={['INSTRUCTOR', 'ADMIN']}>
                 <DashboardPage />
               </ProtectedRoute>
             }
