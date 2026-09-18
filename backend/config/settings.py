@@ -22,6 +22,7 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost 127.0.0.1").split()
 
 # ─── APPS ────────────────────────────────────────────────────────────────────
 DJANGO_APPS = [
+    "daphne",  # Must be first in INSTALLED_APPS for ASGI runserver
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -31,6 +32,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "channels",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -78,6 +80,30 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+# ─── CHANNELS / WEBSOCKET ─────────────────────────────────────────────────────
+REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
+USE_IN_MEMORY_CHANNELS = os.environ.get(
+    "USE_IN_MEMORY_CHANNELS",
+    "True" if DEBUG else "False",
+).lower() in ("true", "1", "yes")
+
+if USE_IN_MEMORY_CHANNELS or "test" in sys.argv:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
 
 # ─── DATABASE (PostgreSQL + pgvector or SQLite for local/test) ─────────────
 USE_SQLITE = os.environ.get("USE_SQLITE", "False").lower() in ("true", "1", "yes")
