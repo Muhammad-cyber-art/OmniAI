@@ -188,10 +188,15 @@ SIMPLE_JWT = {
 }
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = os.environ.get(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000 http://127.0.0.1:3000 http://localhost:5173 http://127.0.0.1:5173",
-).split()
+# Dev: allow all origins so Vite port changes (5173, 5174, etc.) never block
+# Prod: restrict to specific domains via CORS_ALLOWED_ORIGINS env var
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "https://chronosai.uz",
+    ).split()
 CORS_ALLOW_CREDENTIALS = True
 
 # ─── INTERNATIONALIZATION ─────────────────────────────────────────────────────
