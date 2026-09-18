@@ -1,3 +1,5 @@
+import AppleSticker from './AppleSticker';
+
 const STEPS = [
   {
     step: '01',
@@ -64,8 +66,8 @@ export default function HowItWorks() {
               </div>
 
               {/* Icon */}
-              <div className={`w-12 h-12 rounded-xl ${accent} text-2xl flex items-center justify-center mb-4 shadow-sm`}>
-                {icon}
+              <div className={`w-12 h-12 rounded-xl ${accent} flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
+                <AppleSticker symbol={icon} size={28} />
               </div>
 
               {/* Connector line (desktop) */}

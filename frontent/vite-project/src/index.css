@@ -37,6 +37,10 @@ body {
   .font-sans {
     font-family: 'Inter', system-ui, sans-serif;
   }
+  .emoji, .apple-emoji {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+    font-style: normal;
+  }
 }
 
 /* ===== CUSTOM ANIMATIONS (not in Tailwind core) ===== */

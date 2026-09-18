@@ -1,3 +1,5 @@
+import AppleSticker from './AppleSticker';
+
 const STATS = [
   { value: '15 son', label: "Simulyatsiya vaqti" },
   { value: '98%', label: "Talabalar qoniqishi" },
@@ -122,13 +124,13 @@ export default function Hero() {
             aria-hidden="true"
             className="absolute -top-4 right-8 z-10 flex items-center gap-2 bg-white border border-[#E5E9F0] rounded-full px-4 py-2 text-[13px] font-semibold shadow-md anim-float"
           >
-            🎯 <span>AI Tahlil</span>
+            <AppleSticker symbol="🎯" size={18} /> <span>AI Tahlil</span>
           </div>
           <div
             aria-hidden="true"
             className="absolute -bottom-4 -left-4 z-10 flex items-center gap-2 bg-white border border-[#E5E9F0] rounded-full px-4 py-2 text-[13px] font-semibold shadow-md anim-float [animation-delay:1.2s]"
           >
-            🔥 <span>98% aniqlik</span>
+            <AppleSticker symbol="🔥" size={18} /> <span>98% aniqlik</span>
           </div>
 
           {/* Card */}
@@ -175,7 +177,9 @@ export default function Hero() {
               <div className="bg-gradient-to-br from-[#0056D6]/[0.04] to-[#0056D6]/[0.02] border border-[#0056D6]/15 rounded-xl p-4 flex flex-col gap-3">
                 {/* Scene */}
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🏛️</span>
+                  <span className="shrink-0 flex items-center justify-center">
+                    <AppleSticker symbol="🏛️" size={28} />
+                  </span>
                   <div className="flex-1">
                     <div className="text-[14px] font-bold text-[#161C2D]">Sud Zali — 2024, Toshkent</div>
                     <div className="text-[12px] text-[#6B7280]">Detektiv kvest generatsiya qilindi</div>
@@ -192,7 +196,7 @@ export default function Hero() {
                       key={label}
                       className={`flex items-center gap-1.5 text-[13px] font-semibold ${color} bg-white px-3 py-1.5 rounded-full border border-[#E5E9F0] shadow-sm`}
                     >
-                      <span>{emoji}</span>
+                      <AppleSticker symbol={emoji} size={16} />
                       <span>{label}</span>
                     </div>
                   ))}
@@ -201,7 +205,10 @@ export default function Hero() {
 
               {/* Footer */}
               <div className="flex justify-between items-center border-t border-[#F0F2F5] pt-3">
-                <span className="text-[12px] font-semibold text-[#0056D6]">⚡ 12.4 soniyada yaratildi</span>
+                <span className="text-[12px] font-semibold text-[#0056D6] flex items-center gap-1.5">
+                  <AppleSticker symbol="⚡" size={14} />
+                  <span>12.4 soniyada yaratildi</span>
+                </span>
                 <span className="text-[11px] text-[#6B7280]">Powered by Gemini 2.0</span>
               </div>
             </div>

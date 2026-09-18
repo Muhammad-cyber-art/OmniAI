@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AppleSticker from '../components/AppleSticker';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -114,7 +115,9 @@ function RoleCard({ id, value, selected, onChange, icon, title, desc }) {
         onChange={onChange}
         className="sr-only"
       />
-      <span className="text-xl mt-0.5 shrink-0">{icon}</span>
+      <span className="mt-0.5 shrink-0 flex items-center justify-center">
+        <AppleSticker symbol={icon} size={24} />
+      </span>
       <div>
         <div className={`text-[14px] font-bold ${selected ? 'text-[#0056D6]' : 'text-[#161C2D]'}`}>
           {title}

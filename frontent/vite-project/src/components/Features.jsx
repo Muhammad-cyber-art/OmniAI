@@ -1,3 +1,5 @@
+import AppleSticker from './AppleSticker';
+
 const FEATURES = [
   {
     icon: '⚡',
@@ -62,8 +64,8 @@ export default function Features() {
               className="group p-6 rounded-2xl border border-[#E5E9F0] bg-white hover:border-[#0056D6]/25 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300"
             >
               {/* Icon */}
-              <div className={`w-12 h-12 rounded-xl ${color} text-2xl flex items-center justify-center mb-5 shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-                {icon}
+              <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center mb-5 shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                <AppleSticker symbol={icon} size={28} />
               </div>
 
               <h3 className="font-display font-bold text-[#161C2D] text-[17px] mb-2">

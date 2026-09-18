@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import AppleSticker from '../components/AppleSticker';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -48,8 +49,8 @@ export default function DashboardPage() {
       {/* Content */}
       <main className="max-w-[1200px] mx-auto px-8 py-12">
         <div className="mb-10">
-          <h1 className="font-display font-extrabold text-[32px] text-[#161C2D] tracking-tight">
-            Xush kelibsiz, {user?.first_name || 'Foydalanuvchi'}! 👋
+          <h1 className="font-display font-extrabold text-[32px] text-[#161C2D] tracking-tight flex items-center gap-2">
+            Xush kelibsiz, {user?.first_name || 'Foydalanuvchi'}! <AppleSticker symbol="👋" size={32} />
           </h1>
           <p className="text-[#6B7280] mt-2 text-[16px]">
             Rol: <span className="font-semibold text-[#0056D6] capitalize">{user?.role || 'student'}</span>
@@ -59,17 +60,17 @@ export default function DashboardPage() {
         {/* Quick cards */}
         <div className="grid md:grid-cols-3 gap-6">
           {[
-            { icon: '🎮', title: 'Simulyatsiyalar', desc: "Jonli AI simulyatsiyalarini boshlang", href: '#', color: 'from-blue-50 to-blue-100/50', accent: 'text-[#0056D6] bg-[#EBF2FF]' },
-            { icon: '📚', title: 'Kurslar', desc: "Mavjud kurslarni ko'ring va davom eting", href: '#', color: 'from-emerald-50 to-emerald-100/50', accent: 'text-emerald-600 bg-emerald-50' },
-            { icon: '👥', title: 'Guruhlar', desc: "Guruhingizni boshqaring yoki qo'shiling", href: '#', color: 'from-violet-50 to-violet-100/50', accent: 'text-violet-600 bg-violet-50' },
+            { icon: '🎮', title: 'Simulyatsiyalar', desc: "Jonli AI simulyatsiyalarini boshlang", href: '#', color: 'from-blue-50 to-blue-100/50', accent: 'bg-[#EBF2FF]' },
+            { icon: '📚', title: 'Kurslar', desc: "Mavjud kurslarni ko'ring va davom eting", href: '#', color: 'from-emerald-50 to-emerald-100/50', accent: 'bg-emerald-50' },
+            { icon: '👥', title: 'Guruhlar', desc: "Guruhingizni boshqaring yoki qo'shiling", href: '#', color: 'from-violet-50 to-violet-100/50', accent: 'bg-violet-50' },
           ].map(({ icon, title, desc, href, color, accent }) => (
             <a
               key={title}
               href={href}
               className={`group p-6 rounded-2xl bg-gradient-to-br ${color} border border-white hover:shadow-[0_12px_36px_rgba(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-300`}
             >
-              <div className={`w-12 h-12 rounded-xl ${accent} text-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
-                {icon}
+              <div className={`w-12 h-12 rounded-xl ${accent} flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
+                <AppleSticker symbol={icon} size={28} />
               </div>
               <h3 className="font-display font-bold text-[#161C2D] text-[17px] mb-1">{title}</h3>
               <p className="text-[13px] text-[#6B7280]">{desc}</p>
@@ -79,7 +80,10 @@ export default function DashboardPage() {
 
         {/* Coming soon notice */}
         <div className="mt-10 p-6 rounded-2xl bg-gradient-to-r from-[#0056D6] to-[#0081FF] text-white text-center">
-          <p className="font-display font-bold text-[18px] mb-1">Dashboard tez orada to'liq bo'ladi 🚀</p>
+          <p className="font-display font-bold text-[18px] mb-1 flex items-center justify-center gap-2">
+            <span>Dashboard tez orada to'liq bo'ladi</span>
+            <AppleSticker symbol="🚀" size={24} />
+          </p>
           <p className="text-white/70 text-[14px]">Frontend jamoasi ushbu bo'limni faol ishlab chiqmoqda.</p>
         </div>
       </main>
