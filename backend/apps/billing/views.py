@@ -169,7 +169,7 @@ class WalletTransactionListView(generics.ListAPIView):
     def get_queryset(self):
         return WalletTransaction.objects.filter(
             wallet__user=self.request.user
-        ).select_related("simulation_session__case")
+        ).select_related("simulation_session__case", "wallet")
 
 
 class QuotaStatusView(generics.RetrieveAPIView):

@@ -37,7 +37,7 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
 class GroupListSerializer(serializers.ModelSerializer):
     mentor = MentorBriefSerializer(read_only=True)
     student_count = serializers.IntegerField(read_only=True)
-    courses_count = serializers.SerializerMethodField()
+    courses_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Group
@@ -52,9 +52,6 @@ class GroupListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
-    def get_courses_count(self, obj) -> int:
-        return obj.courses.count()
 
 
 class GroupDetailSerializer(serializers.ModelSerializer):
@@ -79,7 +76,12 @@ class GroupDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_students(self, obj):
-        memberships = obj.memberships.select_related("student").filter(status="ACTIVE")
+        if hasattr(obj, "active_memberships"):
+            memberships = obj.active_memberships
+        elif hasattr(obj, "_prefetched_objects_cache") and "memberships" in obj._prefetched_objects_cache:
+            memberships = [m for m in obj.memberships.all() if m.status == "ACTIVE"]
+        else:
+            memberships = obj.memberships.select_related("student").filter(status="ACTIVE")
         return GroupMembershipSerializer(memberships, many=True).data
 
 

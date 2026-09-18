@@ -49,7 +49,7 @@ class SimulationCaseListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = SimulationCase.objects.select_related("course__domain")
+        qs = SimulationCase.objects.select_related("course__domain", "course__instructor")
         if self.request.user.role in ("STUDENT", "RECRUITER"):
             qs = qs.filter(is_published=True, is_active=True)
         return qs
@@ -86,7 +86,7 @@ class SimulationCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = SimulationCase.objects.select_related("course__domain", "lesson")
+        qs = SimulationCase.objects.select_related("course__domain", "course__instructor", "lesson")
         if self.request.user.role in ("STUDENT", "RECRUITER"):
             qs = qs.filter(is_published=True, is_active=True)
         return qs
@@ -380,7 +380,7 @@ class SimulationScenarioListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = SimulationScenario.objects.select_related("course", "lesson", "created_by")
+        qs = SimulationScenario.objects.select_related("course__domain", "lesson", "created_by", "case")
         if self.request.user.role in ("STUDENT", "RECRUITER"):
             qs = qs.filter(is_active=True)
         elif self.request.user.role == "INSTRUCTOR":
@@ -421,7 +421,7 @@ class SimulationScenarioDetailView(generics.RetrieveUpdateDestroyAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        return SimulationScenario.objects.select_related("course", "lesson", "created_by")
+        return SimulationScenario.objects.select_related("course__domain", "lesson", "created_by", "case")
 
     def perform_destroy(self, instance):
         instance.delete()

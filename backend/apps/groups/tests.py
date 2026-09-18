@@ -131,3 +131,23 @@ class GroupTests(TestCase):
         res = self.client.post(f"/api/v1/groups/join/{invitation.token}/")
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(res.data["success"])
+
+    def test_group_list_n_plus_one_prevention(self):
+        """Verify that fetching multiple groups executes a constant, minimal number of queries."""
+        # Create 5 groups with courses and student memberships
+        for i in range(5):
+            grp = Group.objects.create(name=f"Cohort {i}", mentor=self.mentor)
+            grp.courses.add(self.course)
+            GroupMembership.objects.create(group=grp, student=self.student, status="ACTIVE")
+
+        self.client.force_authenticate(user=self.mentor)
+
+        # In an unoptimized view, 5 groups would take 1 (groups) + 5 (courses) + 5 (students) = 11+ queries
+        # With select_related, prefetch_related, and annotate, it takes EXACTLY 3 queries:
+        # 1. Total count for pagination
+        # 2. Groups list with mentor joined & counts annotated
+        # 3. Prefetched courses
+        with self.assertNumQueries(3):
+            res = self.client.get("/api/v1/groups/")
+            self.assertEqual(res.status_code, status.HTTP_200_OK)
+            self.assertEqual(len(res.data["results"] if "results" in res.data else res.data), 5)

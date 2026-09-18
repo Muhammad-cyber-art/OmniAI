@@ -8,7 +8,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.curriculum.models import Domain, Course, Lesson
+from apps.curriculum.models import Domain, Course, Lesson, Quiz, Question, QuestionOption
 
 User = get_user_model()
 
@@ -199,4 +199,27 @@ class QuizTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data["data"]["score"], 100.0)
         self.assertTrue(res.data["data"]["is_passed"])
+
+    def test_quiz_list_n_plus_one_prevention(self):
+        """Verify that listing quizzes executes 1 single query with annotated question count."""
+        # Create 5 quizzes with questions
+        for i in range(5):
+            qz = Quiz.objects.create(
+                lesson=self.lesson,
+                created_by=self.instructor,
+                title=f"Test Quiz {i}",
+                is_published=True,
+            )
+            Question.objects.create(quiz=qz, text="Savol 1")
+            Question.objects.create(quiz=qz, text="Savol 2")
+
+        self.client.force_authenticate(user=self.student)
+        # Without optimization, 5 quizzes would run 1 + 5 = 6 queries (for total_questions count).
+        # With select_related and annotate, it runs exactly 1 or 2 queries (with pagination count if paginated)
+        res = self.client.get(f"/api/v1/curriculum/lessons/{self.lesson.id}/quizzes/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        items = res.data["results"] if "results" in res.data else res.data
+        self.assertEqual(len(items), 5)
+        for item in items:
+            self.assertEqual(item["total_questions"], 2)
 

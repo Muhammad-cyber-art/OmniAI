@@ -3,6 +3,7 @@ OmniLab AI - Curriculum Views
 Domain, Course, Lesson CRUD + DocumentChunk RAG management.
 """
 import logging
+from django.db.models import Count, Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -102,7 +103,15 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = Course.objects.select_related("domain", "instructor").prefetch_related("lessons")
+        qs = (
+            Course.objects.select_related("domain", "instructor")
+            .prefetch_related("lessons")
+            .annotate(
+                published_lessons_count=Count(
+                    "lessons", filter=Q(lessons__is_published=True), distinct=True
+                )
+            )
+        )
         user = self.request.user
         if user.role in ("STUDENT", "RECRUITER"):
             qs = qs.filter(is_published=True)
@@ -239,7 +248,12 @@ class LessonQuizListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = Quiz.objects.filter(lesson_id=self.kwargs["lesson_id"]).select_related("lesson")
+        qs = (
+            Quiz.objects.filter(lesson_id=self.kwargs["lesson_id"])
+            .select_related("lesson", "created_by")
+            .annotate(annotated_total_questions=Count("questions", distinct=True))
+            .order_by("-created_at")
+        )
         if self.request.user.role in ("STUDENT", "RECRUITER"):
             qs = qs.filter(is_published=True)
         return qs
@@ -340,7 +354,8 @@ class QuizSubmitView(APIView):
         for q in questions:
             total_points += q.points
             selected_option_id = str(student_answers.get(str(q.id)) or "")
-            correct_option = q.options.filter(is_correct=True).first()
+            # Cached in-memory lookup via prefetched options
+            correct_option = next((opt for opt in q.options.all() if opt.is_correct), None)
 
             is_correct = bool(correct_option and str(correct_option.id) == selected_option_id)
             if is_correct:

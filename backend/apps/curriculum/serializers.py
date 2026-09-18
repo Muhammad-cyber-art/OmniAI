@@ -41,6 +41,10 @@ class CourseDetailSerializer(CourseListSerializer):
         fields = CourseListSerializer.Meta.fields + ["lessons_count", "created_at", "updated_at"]
 
     def get_lessons_count(self, obj):
+        if hasattr(obj, "published_lessons_count"):
+            return obj.published_lessons_count
+        if hasattr(obj, "_prefetched_objects_cache") and "lessons" in obj._prefetched_objects_cache:
+            return sum(1 for l in obj.lessons.all() if l.is_published)
         return obj.lessons.filter(is_published=True).count()
 
 

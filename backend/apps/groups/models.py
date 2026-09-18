@@ -60,7 +60,19 @@ class Group(models.Model):
 
     @property
     def student_count(self) -> int:
+        if hasattr(self, "_annotated_student_count"):
+            return self._annotated_student_count
+        if hasattr(self, "_prefetched_objects_cache") and "memberships" in self._prefetched_objects_cache:
+            return sum(1 for m in self.memberships.all() if m.status == "ACTIVE")
         return self.memberships.filter(status="ACTIVE").count()
+
+    @property
+    def courses_count(self) -> int:
+        if hasattr(self, "_annotated_courses_count"):
+            return self._annotated_courses_count
+        if hasattr(self, "_prefetched_objects_cache") and "courses" in self._prefetched_objects_cache:
+            return len(self.courses.all())
+        return self.courses.count()
 
 
 class GroupMembership(models.Model):

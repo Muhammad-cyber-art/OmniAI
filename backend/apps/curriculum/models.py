@@ -258,6 +258,10 @@ class Quiz(models.Model):
 
     @property
     def total_questions(self) -> int:
+        if hasattr(self, "annotated_total_questions"):
+            return self.annotated_total_questions
+        if hasattr(self, "_prefetched_objects_cache") and "questions" in self._prefetched_objects_cache:
+            return len(self.questions.all())
         return self.questions.count()
 
 

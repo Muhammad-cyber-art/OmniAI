@@ -3,10 +3,12 @@ OmniLab AI - Groups Views
 Group management, invitation link generation, token verification, and enrollment.
 """
 import logging
+from django.db.models import Count, Q, Prefetch
 from rest_framework import generics, status, views
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+from apps.curriculum.models import Course
 from apps.users.permissions import IsStudent
 from .models import Group, GroupMembership, GroupInvitation
 from .permissions import IsMentor, IsGroupMentorOrAdmin
@@ -41,12 +43,25 @@ class GroupListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        base_qs = (
+            Group.objects.select_related("mentor")
+            .prefetch_related("courses")
+            .annotate(
+                _annotated_student_count=Count(
+                    "memberships",
+                    filter=Q(memberships__status="ACTIVE"),
+                    distinct=True,
+                ),
+                _annotated_courses_count=Count("courses", distinct=True),
+            )
+            .order_by("-created_at")
+        )
         if user.role == "ADMIN":
-            return Group.objects.select_related("mentor").prefetch_related("courses", "memberships").all()
+            return base_qs.all()
         if user.role == "INSTRUCTOR":
-            return Group.objects.filter(mentor=user).select_related("mentor").prefetch_related("courses", "memberships")
+            return base_qs.filter(mentor=user)
         # Students see groups they belong to
-        return Group.objects.filter(memberships__student=user, memberships__status="ACTIVE").select_related("mentor").prefetch_related("courses")
+        return base_qs.filter(memberships__student=user, memberships__status="ACTIVE")
 
     def perform_create(self, serializer):
         serializer.save(mentor=self.request.user)
@@ -80,7 +95,28 @@ class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
         return GroupDetailSerializer
 
     def get_queryset(self):
-        return Group.objects.select_related("mentor").prefetch_related("courses", "memberships__student")
+        return (
+            Group.objects.select_related("mentor")
+            .prefetch_related(
+                Prefetch(
+                    "courses",
+                    queryset=Course.objects.select_related("domain", "instructor"),
+                ),
+                Prefetch(
+                    "memberships",
+                    queryset=GroupMembership.objects.filter(status="ACTIVE").select_related("student"),
+                    to_attr="active_memberships",
+                ),
+            )
+            .annotate(
+                _annotated_student_count=Count(
+                    "memberships",
+                    filter=Q(memberships__status="ACTIVE"),
+                    distinct=True,
+                ),
+                _annotated_courses_count=Count("courses", distinct=True),
+            )
+        )
 
 
 class GenerateInviteView(views.APIView):
@@ -258,9 +294,9 @@ class GroupMembersListView(views.APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        memberships = group.memberships.select_related("student", "student__profile").all()
+        memberships = list(group.memberships.select_related("student", "student__profile").all())
         serializer = GroupMembershipSerializer(memberships, many=True)
-        return Response({"success": True, "count": memberships.count(), "data": serializer.data})
+        return Response({"success": True, "count": len(memberships), "data": serializer.data})
 
     def delete(self, request, pk, student_id, *args, **kwargs):
         try:
