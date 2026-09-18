@@ -4,7 +4,7 @@ Subscription purchase, wallet info, quota status, hint endpoint.
 """
 import logging
 from rest_framework import generics, views, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.users.permissions import IsStudent
@@ -36,7 +36,8 @@ class PlanListView(generics.ListAPIView):
     Public endpoint listing all active subscription plans.
     """
     serializer_class = SubscriptionPlanSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+    pagination_class = None
     queryset = SubscriptionPlan.objects.filter(is_active=True).order_by("price_uzs")
 
 

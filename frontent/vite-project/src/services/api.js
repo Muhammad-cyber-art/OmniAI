@@ -86,10 +86,22 @@ api.interceptors.response.use(
           _refreshing = false;
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          window.location.href = '/login';
+
+          // Never redirect to /login if user is on a public page (e.g. landing page or auth pages)
+          const isPublic = ['/', '/login', '/register'].includes(window.location.pathname);
+          if (!isPublic) {
+            window.location.href = '/login';
+          }
         }
       } else {
-        window.location.href = '/login';
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+
+        // Never redirect to /login if user is on a public page (e.g. landing page or auth pages)
+        const isPublic = ['/', '/login', '/register'].includes(window.location.pathname);
+        if (!isPublic) {
+          window.location.href = '/login';
+        }
       }
     }
 
