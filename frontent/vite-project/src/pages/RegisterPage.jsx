@@ -136,7 +136,7 @@ function RoleCard({ id, value, selected, onChange, icon, title, desc }) {
    REGISTER PAGE
    ══════════════════════════════════════════════════════════ */
 export default function RegisterPage() {
-  const { register, googleLogin, isAuthenticated } = useAuth();
+  const { register, googleLogin, isAuthenticated, authError, clearAuthError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -151,7 +151,8 @@ export default function RegisterPage() {
     role: 'student',
   });
   const [errors, setErrors]   = useState({});
-  const [apiError, setApiError] = useState('');
+  const [localError, setLocalError] = useState('');
+  const apiError = authError || localError;
   const [loading, setLoading]   = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -196,31 +197,35 @@ export default function RegisterPage() {
   /* ── Submit ── */
   async function handleSubmit(e) {
     e.preventDefault();
-    setApiError('');
+    clearAuthError();
+    setLocalError('');
     if (!validate()) return;
     setLoading(true);
     try {
       await register({
-        first_name: form.first_name,
-        last_name:  form.last_name,
-        email:      form.email,
-        password:   form.password,
-        password2:  form.password2,
-        role:       form.role,
+        first_name:       form.first_name,
+        last_name:        form.last_name,
+        email:            form.email,
+        password:         form.password,
+        password2:        form.password2,  // AuthContext converts to password_confirm
+        role:             form.role,
       });
       navigate(from, { replace: true });
     } catch (err) {
+      // Field-level DRF errors
       const data = err.response?.data;
       if (data?.error?.details) {
-        // Field-level errors from DRF serializer
         setErrors((prev) => ({ ...prev, ...data.error.details }));
-      } else {
-        setApiError(
-          data?.error?.message ||
-          data?.detail ||
-          "Ro'yxatdan o'tishda xatolik yuz berdi. Qaytadan urinib ko'ring."
-        );
+      } else if (data && typeof data === 'object') {
+        // Direct DRF field errors shape: { email: [...], password: [...] }
+        const fieldKeys = ['email', 'password', 'password_confirm', 'username'];
+        const fieldErrors = {};
+        fieldKeys.forEach((k) => {
+          if (data[k]) fieldErrors[k] = Array.isArray(data[k]) ? data[k][0] : data[k];
+        });
+        if (Object.keys(fieldErrors).length > 0) setErrors((prev) => ({ ...prev, ...fieldErrors }));
       }
+      if (!authError) setLocalError('');
     } finally {
       setLoading(false);
     }
@@ -228,7 +233,8 @@ export default function RegisterPage() {
 
   /* ── Google ── */
   async function handleGoogleRegister() {
-    setApiError('');
+    clearAuthError();
+    setLocalError('');
     setGoogleLoading(true);
     try {
       const accounts = await loadGSI();
@@ -259,7 +265,7 @@ export default function RegisterPage() {
       await googleLogin(idToken);
       navigate(from, { replace: true });
     } catch (err) {
-      setApiError(err.message || "Google orqali ro'yxatdan o'tishda xatolik yuz berdi");
+      if (!authError) setLocalError(err.message || "Google orqali ro'yxatdan o'tishda xatolik yuz berdi");
     } finally {
       setGoogleLoading(false);
     }

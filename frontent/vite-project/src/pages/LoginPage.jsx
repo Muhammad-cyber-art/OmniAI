@@ -112,7 +112,7 @@ function InputField({ id, label, type = 'text', value, onChange, placeholder, au
    LOGIN PAGE
    ══════════════════════════════════════════════════════════ */
 export default function LoginPage() {
-  const { login, googleLogin, isAuthenticated } = useAuth();
+  const { login, googleLogin, isAuthenticated, authError, clearAuthError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -120,7 +120,9 @@ export default function LoginPage() {
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState('');
+  // apiError comes from AuthContext (backend error) or local validation
+  const [localError, setLocalError] = useState('');
+  const apiError = authError || localError;
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -143,17 +145,15 @@ export default function LoginPage() {
   /* ── Email/Password submit ── */
   async function handleSubmit(e) {
     e.preventDefault();
-    setApiError('');
+    clearAuthError();
+    setLocalError('');
     if (!validate()) return;
     setLoading(true);
     try {
       await login(form.email, form.password);
       navigate(from, { replace: true });
-    } catch (err) {
-      const msg = err.response?.data?.error?.message
-        || err.response?.data?.detail
-        || "Email yoki parol noto'g'ri";
-      setApiError(msg);
+    } catch {
+      // authError is set automatically by AuthContext
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,8 @@ export default function LoginPage() {
 
   /* ── Google OAuth ── */
   async function handleGoogleLogin() {
-    setApiError('');
+    clearAuthError();
+    setLocalError('');
     setGoogleLoading(true);
     try {
       const accounts = await loadGSI();
@@ -177,7 +178,6 @@ export default function LoginPage() {
         });
         accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback: open popup
             accounts.oauth2.initTokenClient({
               client_id: GOOGLE_CLIENT_ID,
               scope: 'email profile',
@@ -193,7 +193,7 @@ export default function LoginPage() {
       await googleLogin(idToken);
       navigate(from, { replace: true });
     } catch (err) {
-      setApiError(err.message || "Google orqali kirishda xatolik yuz berdi");
+      if (!authError) setLocalError(err.message || "Google orqali kirishda xatolik yuz berdi");
     } finally {
       setGoogleLoading(false);
     }
