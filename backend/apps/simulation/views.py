@@ -122,6 +122,21 @@ class StartSimulationView(views.APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        step_logs = [
+            {
+                "step_number": log.step_number,
+                "student_input": log.student_input,
+                "step_score": log.step_score,
+                "feedback": log.feedback_text,
+                "next_scenario": log.next_scenario_text,
+                "is_final": log.is_final_step,
+                "strengths": log.ai_response_raw.get("strengths", []) if isinstance(log.ai_response_raw, dict) else [],
+                "error_flags": log.ai_response_raw.get("error_flags", []) if isinstance(log.ai_response_raw, dict) else [],
+                "running_total_score": session.total_score,
+            }
+            for log in session.step_logs.order_by("step_number")
+        ]
+
         return Response(
             {
                 "success": True,
@@ -134,6 +149,7 @@ class StartSimulationView(views.APIView):
                     "max_steps": session.case.max_steps,
                     "passing_score": session.case.passing_score,
                     "status": session.status,
+                    "step_logs": step_logs,
                 },
             },
             status=status.HTTP_201_CREATED,

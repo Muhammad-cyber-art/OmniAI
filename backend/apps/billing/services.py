@@ -267,20 +267,32 @@ class BillingService:
         2. Monthly simulation quota not exhausted.
         3. Max concurrent sessions not exceeded.
         """
-        try:
-            sub = UserSubscription.objects.select_related("plan").get(
-                user=user, is_active=True
-            )
-        except UserSubscription.DoesNotExist:
-            return False, "No active subscription found."
+        sub = UserSubscription.objects.select_related("plan").filter(
+            user=user, is_active=True
+        ).first()
+
+        if not sub:
+            free_plan = SubscriptionPlan.objects.filter(tier="FREE").first()
+            if free_plan:
+                now = timezone.now()
+                sub = UserSubscription.objects.create(
+                    user=user,
+                    plan=free_plan,
+                    is_active=True,
+                    payment_method="FREE_TIER",
+                    started_at=now,
+                    expires_at=now + timedelta(days=365),
+                )
+            else:
+                return False, "No active subscription found."
 
         if sub.is_expired:
             return False, "Your subscription has expired. Please renew."
 
-        try:
-            quota = UserQuotaUsage.objects.select_related("plan").get(user=user)
-        except UserQuotaUsage.DoesNotExist:
-            return False, "Quota record not found. Please contact support."
+        quota, _ = UserQuotaUsage.objects.get_or_create(
+            user=user,
+            defaults={"plan": sub.plan}
+        )
 
         quota.reset_monthly_if_needed()
 
@@ -290,6 +302,15 @@ class BillingService:
                 f"Monthly simulation limit reached ({quota.plan.monthly_simulations}). "
                 f"Upgrade your plan or wait until next month.",
             )
+
+        # Sync active_sessions_count with actual DB state
+        from apps.simulation.models import SimulationSession
+        actual_active = SimulationSession.objects.filter(
+            student=user, status=SimulationSession.Status.ACTIVE
+        ).count()
+        if quota.active_sessions_count != actual_active:
+            quota.active_sessions_count = actual_active
+            quota.save(update_fields=["active_sessions_count"])
 
         if quota.active_sessions_count >= quota.plan.max_active_sessions:
             return (

@@ -11,6 +11,16 @@ from datetime import timedelta
 # ─── BASE ────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env file into environment
+_env_file = BASE_DIR / ".env"
+if _env_file.exists():
+    with open(_env_file, encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-change-me-in-production-use-env-var",
@@ -18,7 +28,7 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost 127.0.0.1").split()
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost 127.0.0.1 *").split()
 
 # ─── APPS ────────────────────────────────────────────────────────────────────
 DJANGO_APPS = [
@@ -215,15 +225,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ─── AI / RAG SETTINGS ────────────────────────────────────────────────────────
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-EMBEDDING_DIMENSION = int(os.environ.get("EMBEDDING_DIMENSION", "1536"))
-AI_CHAT_MODEL = os.environ.get("AI_CHAT_MODEL", "gpt-4o-mini")
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001")
+EMBEDDING_DIMENSION = int(os.environ.get("EMBEDDING_DIMENSION", "3072"))
+AI_CHAT_MODEL = os.environ.get("AI_CHAT_MODEL", "gemini-2.5-flash")
 AI_MAX_TOKENS = int(os.environ.get("AI_MAX_TOKENS", "2048"))
 AI_TEMPERATURE = float(os.environ.get("AI_TEMPERATURE", "0.2"))
 
 # RAG retrieval settings
 RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
-RAG_SIMILARITY_THRESHOLD = float(os.environ.get("RAG_SIMILARITY_THRESHOLD", "0.75"))
+RAG_SIMILARITY_THRESHOLD = float(os.environ.get("RAG_SIMILARITY_THRESHOLD", "0.60"))
 
 # ─── CACHES (Redis) ───────────────────────────────────────────────────────────
 CACHES = {

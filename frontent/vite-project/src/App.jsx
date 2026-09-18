@@ -17,8 +17,9 @@ import Footer       from './components/Footer';
 import LoginPage    from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
-// Dashboard (role-router)
-import DashboardPage from './pages/DashboardPage';
+// Dashboard & Simulation pages
+import DashboardPage  from './pages/DashboardPage';
+import SimulationPage from './pages/SimulationPage';
 
 /* ── Landing Page (assembled) ── */
 function LandingPage() {
@@ -54,6 +55,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* AI Simulation Lab route */}
+          <Route
+            path="/simulation"
+            element={
+              <ProtectedRoute>
+                <SimulationPage />
               </ProtectedRoute>
             }
           />

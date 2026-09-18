@@ -77,7 +77,11 @@ class CurriculumService:
 
         try:
             import openai
-            client = openai.OpenAI(api_key=api_key)
+            client_kwargs = {"api_key": api_key}
+            base_url = getattr(settings, "AI_BASE_URL", None)
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            client = openai.OpenAI(**client_kwargs)
             response = client.embeddings.create(
                 model=settings.EMBEDDING_MODEL,
                 input=text,

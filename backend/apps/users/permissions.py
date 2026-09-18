@@ -6,14 +6,14 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
 class IsStudent(BasePermission):
-    """Allows access only to STUDENT role users."""
-    message = "Only students can perform this action."
+    """Allows access to STUDENT role users, as well as ADMIN and INSTRUCTOR for testing."""
+    message = "Only students or authorized users can perform this action."
 
     def has_permission(self, request, view):
         return bool(
             request.user
             and request.user.is_authenticated
-            and request.user.role == "STUDENT"
+            and request.user.role in ("STUDENT", "ADMIN", "INSTRUCTOR")
         )
 
 

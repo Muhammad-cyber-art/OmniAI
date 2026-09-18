@@ -106,13 +106,33 @@ class SimulationEngineService:
         except SimulationCase.DoesNotExist:
             raise ValueError(f"SimulationCase '{case_id}' not found or not published.")
 
+        # Resume existing active session for this case if already started
+        existing_session = SimulationSession.objects.filter(
+            student=student, case=case, status=SimulationSession.Status.ACTIVE
+        ).first()
+        if existing_session:
+            logger.info("Resuming active session: student=%s case=%s session=%s", student.email, case.title, existing_session.id)
+            return existing_session
+
         # Quota check
         can_start, reason = BillingService.can_start_simulation(student)
         if not can_start:
-            raise PermissionError(reason)
+            # If concurrent sessions limit reached, auto-abandon older active sessions so student is never locked out
+            if "concurrent sessions" in reason.lower():
+                old_actives = SimulationSession.objects.filter(
+                    student=student, status=SimulationSession.Status.ACTIVE
+                )
+                for old in old_actives:
+                    old.status = SimulationSession.Status.ABANDONED
+                    old.completed_at = timezone.now()
+                    old.save(update_fields=["status", "completed_at"])
+                can_start, reason = BillingService.can_start_simulation(student)
+
+            if not can_start:
+                raise PermissionError(reason)
 
         # Update quota counters atomically
-        quota = UserQuotaUsage.objects.select_for_update().get(user=student)
+        quota, _ = UserQuotaUsage.objects.select_for_update().get_or_create(user=student)
         quota.monthly_simulations_used += 1
         quota.active_sessions_count += 1
         quota.save(update_fields=["monthly_simulations_used", "active_sessions_count", "updated_at"])
@@ -155,7 +175,7 @@ class SimulationEngineService:
 
         # Load and lock session
         try:
-            session = SimulationSession.objects.select_for_update().select_related(
+            session = SimulationSession.objects.select_for_update(of=("self",)).select_related(
                 "case__course__domain",
                 "case__lesson",
             ).get(id=session_id, student=student)
@@ -378,7 +398,11 @@ class SimulationEngineService:
 
         try:
             import openai
-            client = openai.OpenAI(api_key=api_key)
+            client_kwargs = {"api_key": api_key}
+            base_url = getattr(settings, "AI_BASE_URL", None)
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            client = openai.OpenAI(**client_kwargs)
 
             response = client.chat.completions.create(
                 model=settings.AI_CHAT_MODEL,
@@ -391,15 +415,22 @@ class SimulationEngineService:
                 ],
             )
 
-            raw_content = response.choices[0].message.content
-            parsed = json.loads(raw_content)
-            prompt_tokens = response.usage.prompt_tokens
-            completion_tokens = response.usage.completion_tokens
+            raw_content = response.choices[0].message.content or "{}"
+            cleaned = raw_content.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[-1]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned.rsplit("```", 1)[0]
+                cleaned = cleaned.strip()
+
+            parsed = json.loads(cleaned)
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
 
             return parsed, prompt_tokens, completion_tokens
 
         except json.JSONDecodeError as e:
-            logger.error("AI returned invalid JSON: %s", e)
+            logger.error("AI returned invalid JSON: %s (raw content: %s)", e, raw_content)
             raise AIResponseParseError(f"AI returned invalid JSON: {e}")
         except Exception as exc:
             logger.exception("AI API call failed: %s", exc)

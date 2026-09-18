@@ -182,8 +182,11 @@ export default function StudentDashboard({ user, onLogout }) {
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${DIFF_COLOR[c.difficulty] || 'bg-gray-100 text-gray-600'}`}>
                         {DIFF_LABEL[c.difficulty] || c.difficulty}
                       </span>
-                      <button className="text-[12px] font-semibold text-[#0056D6] hover:underline">
-                        Ko'rish →
+                      <button
+                        onClick={() => navigate('/simulation')}
+                        className="text-[12px] font-semibold text-[#0056D6] hover:underline"
+                      >
+                        Simulyatsiya →
                       </button>
                     </div>
                   </div>
@@ -209,7 +212,10 @@ export default function StudentDashboard({ user, onLogout }) {
               <AppleSticker symbol="🎮" size={40} className="mx-auto mb-3" />
               <p className="font-semibold text-[#161C2D]">Hali simulyatsiya o'tkazilmagan</p>
               <p className="text-[13px] text-[#6B7280] mt-1">Birinchi simulyatsiyangizni boshlang!</p>
-              <button className="mt-4 px-6 py-2.5 bg-[#0056D6] text-white text-[14px] font-semibold rounded-xl hover:bg-[#0047b3] transition-all">
+              <button
+                onClick={() => navigate('/simulation')}
+                className="mt-4 px-6 py-2.5 bg-[#0056D6] text-white text-[14px] font-semibold rounded-xl hover:bg-[#0047b3] transition-all cursor-pointer"
+              >
                 Simulyatsiya boshlash
               </button>
             </div>
@@ -252,7 +258,10 @@ export default function StudentDashboard({ user, onLogout }) {
               <span className="font-display font-bold text-[17px]">Simulyatsiya boshlash</span>
             </div>
             <p className="text-white/70 text-[13px]">AI bilan jonli simulyatsiyada qatnashing va bilimingizni sinab ko'ring.</p>
-            <button className="mt-1 self-start px-5 py-2 bg-white text-[#0056D6] text-[13px] font-bold rounded-xl hover:bg-[#EBF2FF] transition-all">
+            <button
+              onClick={() => navigate('/simulation')}
+              className="mt-1 self-start px-5 py-2 bg-white text-[#0056D6] text-[13px] font-bold rounded-xl hover:bg-[#EBF2FF] transition-all cursor-pointer"
+            >
               Boshlash →
             </button>
           </div>

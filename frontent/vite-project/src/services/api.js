@@ -221,10 +221,12 @@ export const curriculumApi = {
    SIMULATION API
    ══════════════════════════════════════════════════════════ */
 export const simulationApi = {
-  getScenarios:  ()           => api.get('/simulations/cases/'),
-  createSession: (caseId)     => api.post('/simulations/sessions/', { case: caseId }),
-  getMySessions: ()           => api.get('/simulations/sessions/my/'),
-  getSession:    (id)         => api.get(`/simulations/sessions/${id}/`),
+  getScenarios:  ()                         => api.get('/simulations/cases/'),
+  createSession: (caseId)                   => api.post('/simulations/start/', { case_id: caseId }),
+  getMySessions: ()                         => api.get('/simulations/my-sessions/'),
+  getSession:    (id)                       => api.get(`/simulations/my-sessions/${id}/`),
+  sendTurn:      (sessionId, studentInput)  => api.post(`/simulations/${sessionId}/turn/`, { student_input: studentInput }),
+  abandonSession:(sessionId)                => api.post(`/simulations/${sessionId}/abandon/`),
 };
 
 /* ══════════════════════════════════════════════════════════
